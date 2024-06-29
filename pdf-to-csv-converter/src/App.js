@@ -1,45 +1,54 @@
 import React, { useState } from 'react';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf';
-import { parse } from 'papaparse';
+import './App.css';
+import Papa from 'papaparse';
+import * as pdfjsLib from 'pdfjs-dist/webpack';
 
 function App() {
   const [file, setFile] = useState(null);
-  const [csvData, setCsvData] = useState("");
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
   };
 
-  const convertPdfToCsv = async () => {
+  const handleConvert = async () => {
     if (file) {
-      const reader = new FileReader();
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const textContent = await extractTextFromPDF(pdf);
 
-      reader.onload = async (e) => {
-        const typedArray = new Uint8Array(e.target.result);
-        const pdfDoc = await getDocument(typedArray).promise;
-        const page = await pdfDoc.getPage(11); // Assuming the relevant data is on page 11
-        const textContent = await page.getTextContent();
-        const textItems = textContent.items.map(item => item.str);
+      // Simple parsing logic (customize based on your PDF structure)
+      const rows = textContent.split('\n').map(row => row.split(/\s+/));
+      const csv = Papa.unparse(rows);
 
-        // Convert extracted text to CSV format
-        const headers = ["Data"];
-        const csvRows = textItems.map(item => ({ Data: item }));
-
-        // Convert JSON to CSV
-        const csv = parse(csvRows, { headers: true });
-        setCsvData(csv.data);
-      };
-
-      reader.readAsArrayBuffer(file);
+      // Download CSV
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'converted.csv';
+      link.click();
+    } else {
+      alert('Please upload a PDF file first.');
     }
+  };
+
+  const extractTextFromPDF = async (pdf) => {
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      text += pageText + '\n';
+    }
+    return text;
   };
 
   return (
     <div className="App">
-      <h1>PDF to CSV Converter</h1>
-      <input type="file" onChange={handleFileChange} accept="application/pdf" />
-      <button onClick={convertPdfToCsv}>Convert to CSV</button>
-      <textarea value={csvData} readOnly style={{ width: "100%", height: "200px" }} />
+      <header className="App-header">
+        <p>Upload a PDF file to convert it to CSV.</p>
+        <input type="file" accept=".pdf" onChange={handleFileChange} />
+        <button onClick={handleConvert}>Convert to CSV</button>
+      </header>
     </div>
   );
 }
