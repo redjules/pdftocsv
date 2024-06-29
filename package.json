@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "papaparse": "^5.4.1",
+    "pdfjs-dist": "^4.3.136"
+  }
+}
